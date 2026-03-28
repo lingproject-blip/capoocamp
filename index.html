@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小雞搖獎機 - 包含防護盾版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@900&display=swap');
+        
+        body {
+            font-family: 'Noto+Sans+TC', sans-serif;
+            background: #fffbeb; 
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 搖獎圓殼 */
+        .shaker-container {
+            position: relative;
+            width: 380px;
+            height: 380px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.2) 100%);
+            border: 12px solid #fbbf24; 
+            border-radius: 50%;
+            box-shadow: 0 15px 40px rgba(251, 191, 36, 0.3), inset 0 0 60px rgba(255,255,255,0.8);
+            overflow: hidden;
+            backdrop-filter: blur(2px);
+            z-index: 10;
+        }
+
+        /* 糖果球體 */
+        .ball {
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            box-shadow: inset -4px -4px 10px rgba(0,0,0,0.15), inset 4px 4px 10px rgba(255,255,255,0.4), 2px 4px 6px rgba(0,0,0,0.1);
+            user-select: none;
+            will-change: transform;
+            cursor: default;
+        }
+
+        .base-stand {
+            position: relative;
+            margin-top: -30px;
+            width: 220px;
+            height: 60px;
+            background: linear-gradient(to bottom, #f59e0b, #d97706);
+            border-radius: 40px / 20px;
+            z-index: 5;
+            box-shadow: 0 8px 20px rgba(217, 119, 6, 0.4);
+        }
+
+        /* 結果遮罩層 */
+        #result-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* 結果卡片樣式組合 */
+        .result-card {
+            background: #ffffff;
+            padding: 50px;
+            border-radius: 40px;
+            text-align: center;
+            transform: scale(0.8);
+            animation: popUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            max-width: 85%;
+            transition: all 0.3s ease;
+        }
+
+        /* ✨ 獎勵風格 */
+        .style-happy {
+            border: 12px solid #fbbf24;
+            box-shadow: 0 20px 50px rgba(251, 191, 36, 0.6);
+        }
+
+        /* 🛡️ 防護盾風格 */
+        .style-shield {
+            border: 12px solid #06b6d4;
+            box-shadow: 0 20px 50px rgba(6, 182, 212, 0.6);
+        }
+
+        /* ⚔️ 對戰風格 */
+        .style-battle {
+            border: 12px solid #f97316;
+            box-shadow: 0 20px 50px rgba(249, 115, 22, 0.6);
+        }
+
+        /* 😈 陷害風格 */
+        .style-trap {
+            border: 12px solid #a855f7;
+            box-shadow: 0 20px 50px rgba(168, 85, 247, 0.6);
+        }
+        
+        /* 💀 損失風格 */
+        .style-bad {
+            border: 12px solid #4b5563;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        }
+
+        @keyframes popUp {
+            to { transform: scale(1.1); }
+        }
+
+        .btn-draw {
+            margin-top: 40px;
+            padding: 18px 60px;
+            background: #ef4444; 
+            color: white !important;
+            font-size: 28px;
+            border-radius: 60px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 8px 0 #b91c1c;
+            border: none;
+            display: block;
+            position: relative;
+            z-index: 20;
+        }
+
+        .btn-draw:hover {
+            background: #f87171;
+            transform: scale(1.05);
+            box-shadow: 0 10px 0 #b91c1c;
+        }
+
+        .btn-draw:active {
+            transform: translateY(8px);
+            box-shadow: none;
+        }
+
+        .btn-draw:disabled {
+            background: #d1d5db;
+            box-shadow: 0 8px 0 #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="flex flex-col items-center justify-center w-full">
+        <div class="flex flex-col items-center">
+            <div class="shaker-container" id="shaker">
+                <!-- 球會在此動態生成 -->
+            </div>
+            <div class="base-stand"></div>
+        </div>
+        <button id="drawBtn" class="btn-draw font-bold">開始抽獎！</button>
+    </div>
+
+    <!-- 結果彈窗 -->
+    <div id="result-overlay">
+        <div id="result-card" class="result-card">
+            <h2 id="result-title" class="text-3xl font-black mb-4"></h2>
+            <div id="result-text" class="text-4xl md:text-7xl font-black leading-tight whitespace-pre-line"></div>
+            <p id="result-footer" class="mt-8 text-lg font-bold"></p>
+        </div>
+    </div>
+
+    <script>
+        const rawPrizes = [
+            "賺到 1 隻小雞", // 0
+            "賺到 3 隻小雞", // 1
+            "賺到 5 隻小雞", // 2
+            "擲骰決定賺取數量", // 3
+            "擲骰子賺 2 倍", // 4
+            "所有人獲得 2 隻小雞", // 5
+            "指定一個人擲骰比大小\n贏的獲得對方 3 隻小雞", // 6 (Battle)
+            "被指定時可以不用被懲罰\n用完一次即收回", // 7 (Shield)
+            "所有人損失 2 隻小雞", // 8 (Bad)
+            "指定一個人花小雞看醫生\n擲骰決定花費數量", // 9 (Trap)
+            "所有人損失 3 隻小雞", // 10 (Bad)
+            "指定一個人花 2 隻小雞\n買好朋友雞蛋糕", // 11 (Trap)
+            "送給一個人讓他減少小雞\n對方擲骰決定減少數量" // 12 (Trap)
+        ];
+
+        const emojis = ["😀", "😎", "🤩", "🥳", "😂", "🥰", "😋", "😜", "😇", "😍", "🤑", "🤗", "🤪", "🤠", "👽", "🐥", "🐣", "🐤", "🌟", "🛡️"];
+        const colors = ['#ff8787', '#f06595', '#cc5de8', '#845ef7', '#5c7cfa', '#339af0', '#22b8cf', '#20c997', '#51cf66', '#94d82d', '#fcc419', '#ff922b'];
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        let ballPool = [];
+        rawPrizes.forEach((p, index) => {
+            const count = index <= 1 ? 3 : 1; 
+            for(let i = 0; i < count; i++) {
+                ballPool.push({ text: p, originalIndex: index });
+            }
+        });
+
+        const shaker = document.getElementById('shaker');
+        const drawBtn = document.getElementById('drawBtn');
+        const overlay = document.getElementById('result-overlay');
+        const resultCard = document.getElementById('result-card');
+        const resultTitle = document.getElementById('result-title');
+        const resultText = document.getElementById('result-text');
+        const resultFooter = document.getElementById('result-footer');
+        
+        let balls = [];
+        const containerSize = 380;
+        const ballSize = 44;
+        const radius = containerSize / 2;
+        const ballRadius = ballSize / 2;
+
+        function init() {
+            const shuffledEmojis = shuffleArray([...emojis]);
+            const shuffledColors = shuffleArray([...colors]);
+
+            ballPool.forEach((prizeData, i) => {
+                const ball = document.createElement('div');
+                ball.className = 'ball';
+                ball.style.backgroundColor = shuffledColors[i % shuffledColors.length];
+                ball.innerText = shuffledEmojis[i % shuffledEmojis.length];
+                
+                const angle = Math.random() * Math.PI * 2;
+                const r = Math.random() * (radius - ballSize);
+                
+                const data = {
+                    element: ball,
+                    x: radius + Math.cos(angle) * r - ballRadius,
+                    y: radius + Math.sin(angle) * r - ballRadius,
+                    vx: (Math.random() - 0.5) * 12,
+                    vy: (Math.random() - 0.5) * 12
+                };
+                
+                shaker.appendChild(ball);
+                balls.push(data);
+            });
+        }
+
+        let speedMultiplier = 1;
+        let isDrawing = false;
+
+        function update() {
+            balls.forEach(ball => {
+                ball.x += ball.vx * speedMultiplier;
+                ball.y += ball.vy * speedMultiplier;
+
+                const dx = (ball.x + ballRadius) - radius;
+                const dy = (ball.y + ballRadius) - radius;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist > radius - ballRadius) {
+                    const nx = dx / dist; 
+                    const ny = dy / dist; 
+                    const dot = ball.vx * nx + ball.vy * ny;
+                    ball.vx = (ball.vx - 2 * dot * nx) * 0.99;
+                    ball.vy = (ball.vy - 2 * dot * ny) * 0.99;
+                    ball.vx += (Math.random() - 0.5) * 3;
+                    ball.vy += (Math.random() - 0.5) * 3;
+                    const overlap = dist - (radius - ballRadius);
+                    ball.x -= nx * overlap;
+                    ball.y -= ny * overlap;
+                }
+
+                const minSpeed = 2;
+                const currentSpeed = Math.sqrt(ball.vx**2 + ball.vy**2);
+                if (currentSpeed < minSpeed) {
+                    ball.vx *= 1.1;
+                    ball.vy *= 1.1;
+                }
+                ball.element.style.transform = `translate(${ball.x}px, ${ball.y}px)`;
+            });
+            requestAnimationFrame(update);
+        }
+
+        function draw() {
+            if (isDrawing) return;
+            isDrawing = true;
+            drawBtn.disabled = true;
+            
+            let startTime = Date.now();
+            const duration = 2200;
+            
+            const shakeEffect = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                if (elapsed < duration) {
+                    speedMultiplier = 1 + (elapsed / duration) * 18;
+                } else {
+                    clearInterval(shakeEffect);
+                    showResult();
+                }
+            }, 30);
+        }
+
+        function showResult() {
+            speedMultiplier = 1;
+            const winner = ballPool[Math.floor(Math.random() * ballPool.length)];
+            const idx = winner.originalIndex;
+
+            if (idx === 7) {
+                // 🛡️ 防護盾風格
+                overlay.style.backgroundColor = "rgba(236, 254, 255, 0.95)";
+                resultCard.className = "result-card style-shield";
+                resultTitle.innerText = "🛡️ 獲得防護盾 🛡️";
+                resultTitle.className = "text-cyan-600 text-3xl font-black mb-4";
+                resultText.innerText = winner.text;
+                resultText.className = "text-4xl md:text-7xl text-cyan-800 font-black leading-tight whitespace-pre-line";
+                resultFooter.innerText = "危機時刻就靠它了！ (5秒後關閉)";
+                resultFooter.className = "mt-8 text-cyan-500/60 text-lg font-bold";
+            } else if (idx === 6) {
+                // ⚔️ 挑戰對戰風格
+                overlay.style.backgroundColor = "rgba(254, 243, 199, 0.95)";
+                resultCard.className = "result-card style-battle";
+                resultTitle.innerText = "⚔️ 命運對決 ⚔️";
+                resultTitle.className = "text-orange-600 text-3xl font-black mb-4";
+                resultText.innerText = winner.text;
+                resultText.className = "text-4xl md:text-7xl text-orange-800 font-black leading-tight whitespace-pre-line";
+                resultFooter.innerText = "究竟誰才是最強小雞？ (5秒後關閉)";
+                resultFooter.className = "mt-8 text-orange-500/60 text-lg font-bold";
+            } else if (idx === 9 || idx === 11 || idx === 12) {
+                // 😈 惡作劇陷害風格
+                overlay.style.backgroundColor = "rgba(250, 245, 255, 0.95)";
+                resultCard.className = "result-card style-trap";
+                resultTitle.innerText = "😈 惡作劇時間 😈";
+                resultTitle.className = "text-purple-600 text-3xl font-black mb-4";
+                resultText.innerText = winner.text;
+                resultText.className = "text-4xl md:text-7xl text-purple-900 font-black leading-tight whitespace-pre-line";
+                resultFooter.innerText = "有人要倒大霉啦！ (5秒後關閉)";
+                resultFooter.className = "mt-8 text-purple-400 text-lg font-bold";
+            } else if (idx === 8 || idx === 10) {
+                // 💀 損失風格
+                overlay.style.backgroundColor = "rgba(15, 23, 42, 0.95)";
+                resultCard.className = "result-card style-bad";
+                resultTitle.innerText = "😱 哎呀...糟糕了 😱";
+                resultTitle.className = "text-gray-500 text-3xl font-black mb-4";
+                resultText.innerText = winner.text;
+                resultText.className = "text-4xl md:text-7xl text-gray-800 font-black leading-tight whitespace-pre-line";
+                resultFooter.innerText = "損失已無法挽回... (5秒後關閉)";
+                resultFooter.className = "mt-8 text-gray-400 text-lg font-bold";
+            } else {
+                // ✨ 獲獎風格
+                overlay.style.backgroundColor = "rgba(255, 251, 235, 0.9)";
+                resultCard.className = "result-card style-happy";
+                resultTitle.innerText = "🎉 恭喜獲獎 🎉";
+                resultTitle.className = "text-amber-500 text-3xl font-black mb-4";
+                resultText.innerText = winner.text;
+                resultText.className = "text-4xl md:text-7xl text-red-600 font-black leading-tight whitespace-pre-line";
+                resultFooter.innerText = "小雞正在趕來的路上... (5秒後關閉)";
+                resultFooter.className = "mt-8 text-amber-600/60 text-lg font-bold";
+            }
+
+            overlay.style.display = 'flex';
+
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                isDrawing = false;
+                drawBtn.disabled = false;
+            }, 5000);
+        }
+
+        drawBtn.addEventListener('click', draw);
+        init();
+        update();
+    </script>
+</body>
+</html>
