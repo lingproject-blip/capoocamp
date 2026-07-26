@@ -74,6 +74,7 @@
             justify-content: center;
             align-items: center;
             animation: fadeIn 0.4s ease-out;
+            cursor: pointer;
         }
 
         @keyframes fadeIn {
@@ -184,21 +185,25 @@
     </div>
 
     <script>
-        const rawPrizes = [
-            "賺到 1 隻小雞", // 0
-            "賺到 3 隻小雞", // 1
-            "賺到 5 隻小雞", // 2
-            "擲骰決定賺取數量", // 3
-            "擲骰子賺 2 倍", // 4
-            "所有人獲得 2 隻小雞", // 5
-            "指定一個人擲骰比大小\n贏的獲得對方 3 隻小雞", // 6 (Battle)
-            "被指定時可以不用被懲罰\n用完一次即收回", // 7 (Shield)
-            "所有人損失 2 隻小雞", // 8 (Bad)
-            "指定一個人花小雞看醫生\n擲骰決定花費數量", // 9 (Trap)
-            "所有人損失 3 隻小雞", // 10 (Bad)
-            "指定一個人花 2 隻小雞\n買好朋友雞蛋糕", // 11 (Trap)
-            "送給一個人讓他減少小雞\n對方擲骰決定減少數量" // 12 (Trap)
-        ];
+        const prizesPool = {
+            reward: [
+                { text: "賺到 1 隻小雞", type: "happy" },
+                { text: "賺到 2 隻小雞", type: "happy" },
+                { text: "擲骰決定賺取數量", type: "happy" },
+                { text: "所有人獲得 2 隻小雞", type: "happy" },
+                { text: "指定一個人擲骰比大小\n贏的獲得對方 3 隻小雞", type: "battle" }
+            ],
+            loss: [
+                { text: "所有人損失 1 隻小雞", type: "bad" },
+                { text: "所有人損失 2 隻小雞", type: "bad" },
+                { text: "指定一個人花小雞看醫生\n擲骰決定花費數量", type: "trap" },
+                { text: "指定一個人花 2 隻小雞\n買好朋友雞蛋糕", type: "trap" },
+                { text: "送給一個人讓他減少小雞\n對方擲骰決定減少數量", type: "trap" }
+            ],
+            shield: [
+                { text: "被指定時可以不用被懲罰\n用完一次即收回", type: "shield" }
+            ]
+        };
 
         const emojis = ["😀", "😎", "🤩", "🥳", "😂", "🥰", "😋", "😜", "😇", "😍", "🤑", "🤗", "🤪", "🤠", "👽", "🐥", "🐣", "🐤", "🌟", "🛡️"];
         const colors = ['#ff8787', '#f06595', '#cc5de8', '#845ef7', '#5c7cfa', '#339af0', '#22b8cf', '#20c997', '#51cf66', '#94d82d', '#fcc419', '#ff922b'];
@@ -211,11 +216,17 @@
             return array;
         }
 
+        const allPrizes = [
+            ...prizesPool.reward,
+            ...prizesPool.loss,
+            ...prizesPool.shield
+        ];
+
         let ballPool = [];
-        rawPrizes.forEach((p, index) => {
-            const count = index <= 1 ? 3 : 1; 
+        allPrizes.forEach((prizeData) => {
+            const count = (prizeData.type === 'happy' || prizeData.type === 'bad') ? 2 : 1;
             for(let i = 0; i < count; i++) {
-                ballPool.push({ text: p, originalIndex: index });
+                ballPool.push(prizeData);
             }
         });
 
@@ -314,12 +325,24 @@
             }, 30);
         }
 
+        function getWinner() {
+            const rand = Math.random();
+            let category;
+            if (rand < 0.60) {
+                category = prizesPool.reward; // 60% 獲獎
+            } else if (rand < 0.80) {
+                category = prizesPool.loss;   // 20% 損失
+            } else {
+                category = prizesPool.shield; // 20% 防護盾
+            }
+            return category[Math.floor(Math.random() * category.length)];
+        }
+
         function showResult() {
             speedMultiplier = 1;
-            const winner = ballPool[Math.floor(Math.random() * ballPool.length)];
-            const idx = winner.originalIndex;
+            const winner = getWinner();
 
-            if (idx === 7) {
+            if (winner.type === 'shield') {
                 // 🛡️ 防護盾風格
                 overlay.style.backgroundColor = "rgba(236, 254, 255, 0.95)";
                 resultCard.className = "result-card style-shield";
@@ -327,9 +350,9 @@
                 resultTitle.className = "text-cyan-600 text-3xl font-black mb-4";
                 resultText.innerText = winner.text;
                 resultText.className = "text-4xl md:text-7xl text-cyan-800 font-black leading-tight whitespace-pre-line";
-                resultFooter.innerText = "危機時刻就靠它了！ (5秒後關閉)";
+                resultFooter.innerText = "危機時刻就靠它了！ (按一下關閉)";
                 resultFooter.className = "mt-8 text-cyan-500/60 text-lg font-bold";
-            } else if (idx === 6) {
+            } else if (winner.type === 'battle') {
                 // ⚔️ 挑戰對戰風格
                 overlay.style.backgroundColor = "rgba(254, 243, 199, 0.95)";
                 resultCard.className = "result-card style-battle";
@@ -337,9 +360,9 @@
                 resultTitle.className = "text-orange-600 text-3xl font-black mb-4";
                 resultText.innerText = winner.text;
                 resultText.className = "text-4xl md:text-7xl text-orange-800 font-black leading-tight whitespace-pre-line";
-                resultFooter.innerText = "究竟誰才是最強小雞？ (5秒後關閉)";
+                resultFooter.innerText = "究竟誰才是最強小雞？ (按一下關閉)";
                 resultFooter.className = "mt-8 text-orange-500/60 text-lg font-bold";
-            } else if (idx === 9 || idx === 11 || idx === 12) {
+            } else if (winner.type === 'trap') {
                 // 😈 惡作劇陷害風格
                 overlay.style.backgroundColor = "rgba(250, 245, 255, 0.95)";
                 resultCard.className = "result-card style-trap";
@@ -347,9 +370,9 @@
                 resultTitle.className = "text-purple-600 text-3xl font-black mb-4";
                 resultText.innerText = winner.text;
                 resultText.className = "text-4xl md:text-7xl text-purple-900 font-black leading-tight whitespace-pre-line";
-                resultFooter.innerText = "有人要倒大霉啦！ (5秒後關閉)";
+                resultFooter.innerText = "有人要倒大霉啦！ (按一下關閉)";
                 resultFooter.className = "mt-8 text-purple-400 text-lg font-bold";
-            } else if (idx === 8 || idx === 10) {
+            } else if (winner.type === 'bad') {
                 // 💀 損失風格
                 overlay.style.backgroundColor = "rgba(15, 23, 42, 0.95)";
                 resultCard.className = "result-card style-bad";
@@ -357,7 +380,7 @@
                 resultTitle.className = "text-gray-500 text-3xl font-black mb-4";
                 resultText.innerText = winner.text;
                 resultText.className = "text-4xl md:text-7xl text-gray-800 font-black leading-tight whitespace-pre-line";
-                resultFooter.innerText = "損失已無法挽回... (5秒後關閉)";
+                resultFooter.innerText = "損失已無法挽回... (按一下關閉)";
                 resultFooter.className = "mt-8 text-gray-400 text-lg font-bold";
             } else {
                 // ✨ 獲獎風格
@@ -367,19 +390,21 @@
                 resultTitle.className = "text-amber-500 text-3xl font-black mb-4";
                 resultText.innerText = winner.text;
                 resultText.className = "text-4xl md:text-7xl text-red-600 font-black leading-tight whitespace-pre-line";
-                resultFooter.innerText = "小雞正在趕來的路上... (5秒後關閉)";
+                resultFooter.innerText = "小雞正在趕來的路上... (按一下關閉)";
                 resultFooter.className = "mt-8 text-amber-600/60 text-lg font-bold";
             }
 
             overlay.style.display = 'flex';
-
-            setTimeout(() => {
-                overlay.style.display = 'none';
-                isDrawing = false;
-                drawBtn.disabled = false;
-            }, 5000);
         }
 
+        function closeResult() {
+            if (!isDrawing) return;
+            overlay.style.display = 'none';
+            isDrawing = false;
+            drawBtn.disabled = false;
+        }
+
+        overlay.addEventListener('click', closeResult);
         drawBtn.addEventListener('click', draw);
         init();
         update();
